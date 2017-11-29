@@ -50,13 +50,13 @@ parser.add_argument('--dropoutl', type=float, default=-0.2,
                     help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--wdrop', type=float, default=0.5,
                     help='amount of weight dropout to apply to the RNN hidden to hidden matrix')
-parser.add_argument('--tied', action='store_false',
+parser.add_argument('--tied', action='store_true',
                     help='tie the word embedding and softmax weights')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--nonmono', type=int, default=5,
                     help='random seed')
-parser.add_argument('--cuda', action='store_false',
+parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
@@ -307,9 +307,17 @@ if not args.test_only:
 
 # Load the best saved model.
 model = torch.load(os.path.join(args.save, 'model.pt'))
+print(torch.sum(model.encoder.weight.data))
+print(torch.sum(model.decoder.weight.data))
+pretrained_embeddings_matrix = np.random.rand(10000, 300)
+#model.encoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
+#model.decoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
+print(torch.sum(model.encoder.weight.data))
+print(torch.sum(model.decoder.weight.data))
 parallel_model = nn.DataParallel(model, dim=1).cuda()
 
 # Run on test data.
+print(test_data)
 test_loss = evaluate(test_data, test_batch_size)
 logging('=' * 89)
 logging('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
