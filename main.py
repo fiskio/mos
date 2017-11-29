@@ -80,6 +80,8 @@ parser.add_argument('--max_seq_len_delta', type=int, default=40,
                     help='max sequence length')
 parser.add_argument('--single_gpu', default=False, action='store_true', 
                     help='use single GPU')
+parser.add_argument('--test_only', default=False, action='store_true',
+                    help='Only test model, needs --save')
 args = parser.parse_args()
 
 if args.nhidlast < 0:
@@ -243,64 +245,65 @@ lr = args.lr
 best_val_loss = []
 stored_loss = 100000000
 
-# At any point you can hit Ctrl + C to break out of training early.
-try:
-    if args.continue_train:
-        optimizer_state = torch.load(os.path.join(args.save, 'optimizer.pt'))
-        if 't0' in optimizer_state['param_groups'][0]:
-            optimizer = torch.optim.ASGD(model.parameters(), lr=args.lr, t0=0, lambd=0., weight_decay=args.wdecay)
+if not args.test_only:
+    # At any point you can hit Ctrl + C to break out of training early.
+    try:
+        if args.continue_train:
+            optimizer_state = torch.load(os.path.join(args.save, 'optimizer.pt'))
+            if 't0' in optimizer_state['param_groups'][0]:
+                optimizer = torch.optim.ASGD(model.parameters(), lr=args.lr, t0=0, lambd=0., weight_decay=args.wdecay)
+            else:
+                optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wdecay)
+            optimizer.load_state_dict(optimizer_state)
         else:
             optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wdecay)
-        optimizer.load_state_dict(optimizer_state)
-    else:
-        optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wdecay)
 
-    for epoch in range(1, args.epochs+1):
-        epoch_start_time = time.time()
-        train()
-        if 't0' in optimizer.param_groups[0]:
-            tmp = {}
-            for prm in model.parameters():
-                tmp[prm] = prm.data.clone()
-                prm.data = optimizer.state[prm]['ax'].clone()
+        for epoch in range(1, args.epochs+1):
+            epoch_start_time = time.time()
+            train()
+            if 't0' in optimizer.param_groups[0]:
+                tmp = {}
+                for prm in model.parameters():
+                    tmp[prm] = prm.data.clone()
+                    prm.data = optimizer.state[prm]['ax'].clone()
 
-            val_loss2 = evaluate(val_data)
-            logging('-' * 89)
-            logging('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
-                    'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                               val_loss2, math.exp(val_loss2)))
-            logging('-' * 89)
+                val_loss2 = evaluate(val_data)
+                logging('-' * 89)
+                logging('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
+                        'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
+                                                   val_loss2, math.exp(val_loss2)))
+                logging('-' * 89)
 
-            if val_loss2 < stored_loss:
-                save_checkpoint(model, optimizer, args.save)
-                logging('Saving Averaged!')
-                stored_loss = val_loss2
+                if val_loss2 < stored_loss:
+                    save_checkpoint(model, optimizer, args.save)
+                    logging('Saving Averaged!')
+                    stored_loss = val_loss2
 
-            for prm in model.parameters():
-                prm.data = tmp[prm].clone()
+                for prm in model.parameters():
+                    prm.data = tmp[prm].clone()
 
-        else:
-            val_loss = evaluate(val_data, eval_batch_size)
-            logging('-' * 89)
-            logging('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
-                    'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                               val_loss, math.exp(val_loss)))
-            logging('-' * 89)
+            else:
+                val_loss = evaluate(val_data, eval_batch_size)
+                logging('-' * 89)
+                logging('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
+                        'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
+                                                   val_loss, math.exp(val_loss)))
+                logging('-' * 89)
 
-            if val_loss < stored_loss:
-                save_checkpoint(model, optimizer, args.save)
-                logging('Saving Normal!')
-                stored_loss = val_loss
+                if val_loss < stored_loss:
+                    save_checkpoint(model, optimizer, args.save)
+                    logging('Saving Normal!')
+                    stored_loss = val_loss
 
-            if 't0' not in optimizer.param_groups[0] and (len(best_val_loss)>args.nonmono and val_loss > min(best_val_loss[:-args.nonmono])):
-                logging('Switching!')
-                optimizer = torch.optim.ASGD(model.parameters(), lr=args.lr, t0=0, lambd=0., weight_decay=args.wdecay)
-                #optimizer.param_groups[0]['lr'] /= 2.
-            best_val_loss.append(val_loss)
+                if 't0' not in optimizer.param_groups[0] and (len(best_val_loss)>args.nonmono and val_loss > min(best_val_loss[:-args.nonmono])):
+                    logging('Switching!')
+                    optimizer = torch.optim.ASGD(model.parameters(), lr=args.lr, t0=0, lambd=0., weight_decay=args.wdecay)
+                    #optimizer.param_groups[0]['lr'] /= 2.
+                best_val_loss.append(val_loss)
 
-except KeyboardInterrupt:
-    logging('-' * 89)
-    logging('Exiting from training early')
+    except KeyboardInterrupt:
+        logging('-' * 89)
+        logging('Exiting from training early')
 
 # Load the best saved model.
 model = torch.load(os.path.join(args.save, 'model.pt'))
