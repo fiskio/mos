@@ -82,6 +82,8 @@ parser.add_argument('--single_gpu', default=False, action='store_true',
                     help='use single GPU')
 parser.add_argument('--test_only', default=False, action='store_true',
                     help='Only test model, needs --save')
+parser.add_argument('--emb_file', default=None, type=str,
+                    help='Optional embedding file')
 args = parser.parse_args()
 
 if args.nhidlast < 0:
@@ -307,7 +309,12 @@ if not args.test_only:
 
 # Load the best saved model.
 model = torch.load(os.path.join(args.save, 'model.pt'))
+
+data.dump_embeddings('embs.txt', model.encoder.weight.data, corpus.train.dictionary.idx2word)
+
+print(model.encoder.weight.shape)
 parallel_model = nn.DataParallel(model, dim=1).cuda()
+
 
 # Run on test data.
 test_loss = evaluate(test_data, test_batch_size)

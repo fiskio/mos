@@ -147,6 +147,16 @@ def check_compatibility(corpus, emb_dict):
     print(corpus_words[:10])
     assert loaded_words == corpus_words
 
+
+def dump_embeddings(emb_file, emb_table, idx2word):
+    with open(emb_file, 'wt') as f:
+        for i, word in enumerate(idx2word):
+            print(word)
+            emb_comp = emb_table[i].cpu().data.numpy().tolist()
+            for x in emb_comp:
+                word += ' ' + str(x)
+            f.write(word + '\n')
+
 if __name__ == '__main__':
     corpus = SentCorpus('../penn')
     loader = BatchSentLoader(corpus.test, 10)
