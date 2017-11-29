@@ -1,7 +1,8 @@
 import os
 import torch
+import numpy as np
 
-from collections import Counter
+from collections import Counter, OrderedDict
 
 
 class Dictionary(object):
@@ -120,6 +121,31 @@ class BatchSentLoader(object):
     def __iter__(self):
         self.idx = 0
         return self
+
+
+def load_embeddings_txt(path, max=None):
+    train = OrderedDict()
+    with open(path, 'rt', encoding='utf-8') as ef:
+        for i, line in enumerate(ef):
+            if i >= max:
+                break
+            tokens = line.split()
+            word = tokens[0]
+            # 1 x EmbSize
+            vector = np.array(tokens[1:], dtype=np.float32)[None, :]
+            vector = torch.from_numpy(vector)
+            vector = torch.autograd.Variable(vector, requires_grad=False)
+            if i < max:
+                train[word] = vector
+    return train
+
+
+def check_compatibility(corpus, emb_dict):
+    loaded_words = list(emb_dict.keys())
+    corpus_words = corpus.dictionary.idx2word
+    print(loaded_words[:10])
+    print(corpus_words[:10])
+    assert loaded_words == corpus_words
 
 if __name__ == '__main__':
     corpus = SentCorpus('../penn')
