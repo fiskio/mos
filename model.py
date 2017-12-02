@@ -17,7 +17,6 @@ class RNNModel(nn.Module):
         super(RNNModel, self).__init__()
         self.lockdrop = LockedDropout()
         self.encoder = nn.Embedding(ntoken, ninp)
-        
         self.rnns = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else nhidlast, 1, dropout=0) for l in range(nlayers)]
         if wdrop:
             self.rnns = [WeightDrop(rnn, ['weight_hh_l0'], dropout=wdrop) for rnn in self.rnns]

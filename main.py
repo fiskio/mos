@@ -155,6 +155,21 @@ logging('Model total parameters: {}'.format(total_params))
 
 criterion = nn.CrossEntropyLoss()
 
+
+if args.load_embs:
+    words, pretrained_embeddings_matrix = data.load_embeddings_txt('embs.txt')
+    data.check_compatibility(corpus, words)
+    print(torch.sum(model.encoder.weight.data))
+    print(torch.sum(model.decoder.weight.data))
+    #pretrained_embeddings_matrix = np.random.rand(10000, 300)
+    model.encoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
+    model.decoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
+    print(torch.sum(model.encoder.weight.data))
+    print(torch.sum(model.decoder.weight.data))
+    model.encoder.requires_grad = False
+    model.decoder.requires_grad = False
+
+
 ###############################################################################
 # Training code
 ###############################################################################
@@ -316,18 +331,6 @@ model = torch.load(os.path.join(args.save, 'model.pt'))
 
 if args.dump_embs:
     data.dump_embeddings('embs.txt', model.encoder.weight.data, corpus.dictionary.idx2word)
-
-if args.load_embs:
-    words, pretrained_embeddings_matrix = data.load_embeddings_txt('embs.txt')
-    data.check_compatibility(corpus, words)
-
-    print(torch.sum(model.encoder.weight.data))
-    print(torch.sum(model.decoder.weight.data))
-    #pretrained_embeddings_matrix = np.random.rand(10000, 300)
-    model.encoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
-    model.decoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
-    print(torch.sum(model.encoder.weight.data))
-    print(torch.sum(model.decoder.weight.data))
 
 parallel_model = nn.DataParallel(model, dim=1).cuda()
 
