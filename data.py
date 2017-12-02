@@ -123,29 +123,38 @@ class BatchSentLoader(object):
         return self
 
 
-def load_embeddings_txt(path, max=None):
+def load_embeddings_txt(path, max=-1):
     train = OrderedDict()
     with open(path, 'rt', encoding='utf-8') as ef:
         for i, line in enumerate(ef):
-            if i >= max:
-                break
             tokens = line.split()
             word = tokens[0]
             # 1 x EmbSize
             vector = np.array(tokens[1:], dtype=np.float32)[None, :]
-            vector = torch.from_numpy(vector)
-            vector = torch.autograd.Variable(vector, requires_grad=False)
-            if i < max:
-                train[word] = vector
-    return train
+            #vector = torch.from_numpy(vector)
+            #vector = torch.autograd.Variable(vector, requires_grad=False)
+            train[word] = vector
+    words = list(train.keys())
+    #embeddings = torch.cat(list(train.values()), 0)
+    embeddings = np.concatenate(list(train.values()), 0)
+    return words, embeddings
 
 
-def check_compatibility(corpus, emb_dict):
-    loaded_words = list(emb_dict.keys())
+def check_compatibility(corpus, loaded_words):
     corpus_words = corpus.dictionary.idx2word
     print(loaded_words[:10])
     print(corpus_words[:10])
     assert loaded_words == corpus_words
+
+
+def dump_embeddings(emb_file, emb_table, idx2word):
+    with open(emb_file, 'wt') as f:
+        for i, word in enumerate(idx2word):
+            print(word)
+            emb_comp = emb_table[i].cpu().numpy().tolist()
+            for x in emb_comp:
+                word += ' ' + str(x)
+            f.write(word + '\n')
 
 if __name__ == '__main__':
     corpus = SentCorpus('../penn')

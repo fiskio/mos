@@ -82,6 +82,12 @@ parser.add_argument('--single_gpu', default=False, action='store_true',
                     help='use single GPU')
 parser.add_argument('--test_only', default=False, action='store_true',
                     help='Only test model, needs --save')
+parser.add_argument('--dump_embs', default=False, action='store_true',
+                    help='Save word embeddings to file')
+parser.add_argument('--load_embs', default=False, action='store_true',
+                    help='Load word embeddings from file')
+parser.add_argument('--emb_file', default=None, type=str,
+                    help='Optional embedding file')
 args = parser.parse_args()
 
 if args.nhidlast < 0:
@@ -307,14 +313,24 @@ if not args.test_only:
 
 # Load the best saved model.
 model = torch.load(os.path.join(args.save, 'model.pt'))
-print(torch.sum(model.encoder.weight.data))
-print(torch.sum(model.decoder.weight.data))
-pretrained_embeddings_matrix = np.random.rand(10000, 300)
-#model.encoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
-#model.decoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
-print(torch.sum(model.encoder.weight.data))
-print(torch.sum(model.decoder.weight.data))
+
+if args.dump_embs:
+    data.dump_embeddings('embs.txt', model.encoder.weight.data, corpus.dictionary.idx2word)
+
+if args.load_embs:
+    words, pretrained_embeddings_matrix = data.load_embeddings_txt('embs.txt')
+    data.check_compatibility(corpus, words)
+
+    print(torch.sum(model.encoder.weight.data))
+    print(torch.sum(model.decoder.weight.data))
+    #pretrained_embeddings_matrix = np.random.rand(10000, 300)
+    model.encoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
+    model.decoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
+    print(torch.sum(model.encoder.weight.data))
+    print(torch.sum(model.decoder.weight.data))
+
 parallel_model = nn.DataParallel(model, dim=1).cuda()
+
 
 # Run on test data.
 print(test_data)
