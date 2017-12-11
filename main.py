@@ -157,6 +157,7 @@ criterion = nn.CrossEntropyLoss()
 
 
 if args.load_embs:
+    print('loading embeddings')
     words, pretrained_embeddings_matrix = data.load_embeddings_txt('embs.txt')
     data.check_compatibility(corpus, words)
     print(torch.sum(model.encoder.weight.data))
@@ -166,8 +167,15 @@ if args.load_embs:
     model.decoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
     print(torch.sum(model.encoder.weight.data))
     print(torch.sum(model.decoder.weight.data))
-    model.encoder.requires_grad = False
-    model.decoder.requires_grad = False
+    for p in model.encoder.parameters():
+        print('encoder')
+        p.requires_grad = False
+    for p in model.decoder.parameters():
+        print('decoder')
+        p.requires_grad = False
+
+    #model.encoder.requires_grad = False
+    #model.decoder.requires_grad = False
 
 
 ###############################################################################
@@ -250,6 +258,8 @@ def train():
         optimizer.param_groups[0]['lr'] = lr2
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
+            print(torch.sum(model.encoder.weight.data))
+            print(torch.sum(model.decoder.weight.data))
             elapsed = time.time() - start_time
             logging('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
                     'loss {:5.2f} | ppl {:8.2f}'.format(
@@ -269,16 +279,20 @@ stored_loss = 100000000
 if not args.test_only:
     # At any point you can hit Ctrl + C to break out of training early.
     try:
-        if args.continue_train:
+        train_params = filter(lambda p: p.requires_grad, model.parameters())
+        if args.continue_train and not args.load_embs:
             optimizer_state = torch.load(os.path.join(args.save, 'optimizer.pt'))
+            print(optimizer_state)
+            print(train_params)
             if 't0' in optimizer_state['param_groups'][0]:
-                optimizer = torch.optim.ASGD(model.parameters(), lr=args.lr, t0=0, lambd=0., weight_decay=args.wdecay)
+                optimizer = torch.optim.ASGD(train_params, lr=args.lr, t0=0, lambd=0., weight_decay=args.wdecay)
             else:
-                optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wdecay)
+                optimizer = torch.optim.SGD(train_params, lr=args.lr, weight_decay=args.wdecay)
+            print(optimizer_state)
             optimizer.load_state_dict(optimizer_state)
         else:
-            optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wdecay)
-
+            optimizer = torch.optim.ASGD(train_params, lr=args.lr, weight_decay=args.wdecay)
+       # optimizer = torch.optim.SGD(train_params, lr=args.lr, weight_decay=args.wdecay)
         for epoch in range(1, args.epochs+1):
             epoch_start_time = time.time()
             train()
@@ -333,6 +347,27 @@ if args.dump_embs:
     data.dump_embeddings('embs.txt', model.encoder.weight.data, corpus.dictionary.idx2word)
 
 parallel_model = nn.DataParallel(model, dim=1).cuda()
+if args.load_embs:
+    print('loading embeddings')
+    words, pretrained_embeddings_matrix = data.load_embeddings_txt('embs.txt')
+    data.check_compatibility(corpus, words)
+    print(torch.sum(model.encoder.weight.data))
+    print(torch.sum(model.decoder.weight.data))
+    #pretrained_embeddings_matrix = np.random.rand(10000, 300)
+    model.encoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
+    model.decoder.weight.data.copy_(torch.from_numpy(pretrained_embeddings_matrix))
+    print(torch.sum(model.encoder.weight.data))
+    print(torch.sum(model.decoder.weight.data))
+    for p in model.encoder.parameters():
+        print('encoder')
+        p.requires_grad = False
+    for p in model.decoder.parameters():
+        print('decoder')
+        p.requires_grad = False
+
+    #model.encoder.requires_grad = False
+    #model.decoder.requires_grad = False
+
 
 
 # Run on test data.

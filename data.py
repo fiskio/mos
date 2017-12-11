@@ -150,7 +150,7 @@ def check_compatibility(corpus, loaded_words):
 def dump_embeddings(emb_file, emb_table, idx2word):
     with open(emb_file, 'wt') as f:
         for i, word in enumerate(idx2word):
-            print(word)
+            # print(word)
             emb_comp = emb_table[i].cpu().numpy().tolist()
             for x in emb_comp:
                 word += ' ' + str(x)
