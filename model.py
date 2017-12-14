@@ -13,10 +13,22 @@ class RNNModel(nn.Module):
 
     def __init__(self, rnn_type, ntoken, ninp, nhid, nhidlast, nlayers, 
                  dropout=0.5, dropouth=0.5, dropouti=0.5, dropoute=0.1, wdrop=0, 
-                 tie_weights=False, ldropout=0.5, n_experts=10):
+                 tie_weights=False, ldropout=0.5, n_experts=10, byte=False):
         super(RNNModel, self).__init__()
         self.lockdrop = LockedDropout()
-        self.encoder = nn.Embedding(ntoken, ninp)
+
+        if byte:
+            if ninp != 256:
+                raise ValueError('wrong embedding size for bytes: %d -> 256' % ninp)
+            assert ninp == 256
+            ntoken = 256
+            self.encoder = nn.Embedding(ntoken, ninp)
+            self.encoder.weight.data.copy_(torch.eye(256))
+            self.encoder.weight.requires_grad = False
+            print(self.encoder.weight.data)
+        else:
+            self.encoder = nn.Embedding(ntoken, ninp)
+
         self.rnns = [torch.nn.LSTM(ninp if l == 0 else nhid, nhid if l != nlayers - 1 else nhidlast, 1, dropout=0) for l in range(nlayers)]
         if wdrop:
             self.rnns = [WeightDrop(rnn, ['weight_hh_l0'], dropout=wdrop) for rnn in self.rnns]
@@ -37,7 +49,7 @@ class RNNModel(nn.Module):
             #    raise ValueError('When using the tied flag, nhid must be equal to emsize')
             self.decoder.weight = self.encoder.weight
 
-        self.init_weights()
+        self.init_weights(byte)
 
         self.rnn_type = rnn_type
         self.ninp = ninp
@@ -58,9 +70,10 @@ class RNNModel(nn.Module):
             size += p.nelement()
         print('param size: {}'.format(size))
 
-    def init_weights(self):
+    def init_weights(self, byte):
         initrange = 0.1
-        self.encoder.weight.data.uniform_(-initrange, initrange)
+        if not byte:
+            self.encoder.weight.data.uniform_(-initrange, initrange)
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
 

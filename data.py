@@ -25,6 +25,39 @@ class Dictionary(object):
         return len(self.idx2word)
 
 
+class ByteCorpus(object):
+    def __init__(self, path):
+        self.dictionary = Dictionary()
+        self.train = self.tokenize(os.path.join(path, 'train.txt'))
+        self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
+        self.test = self.tokenize(os.path.join(path, 'test.txt'))
+
+    def tokenize(self, path):
+        assert os.path.exists(path)
+        # 256 bytes, that's all there is...
+        with open(path, 'r', encoding='utf-8') as f:
+            tokens = 0
+            for line in f:
+                line += '\n'
+                chars = list(bytes(line, 'utf-8'))
+                tokens += len(chars)
+                for c in chars:
+                    self.dictionary.add_word(c)
+
+        # tokenize file content
+        with open(path, 'r', encoding='utf-8') as f:
+            ids = torch.LongTensor(tokens)
+            token = 0
+            for line in f:
+                line += '\n'
+                chars = list(bytes(line, 'utf-8'))
+                for c in chars:
+                    ids[token] = self.dictionary.word2idx[c]
+                    token += 1
+
+        return ids
+
+
 class Corpus(object):
     def __init__(self, path):
         self.dictionary = Dictionary()
@@ -55,6 +88,7 @@ class Corpus(object):
                     token += 1
 
         return ids
+
 
 class SentCorpus(object):
     def __init__(self, path):
@@ -88,6 +122,7 @@ class SentCorpus(object):
                 sents.append(sent)
 
         return sents
+
 
 class BatchSentLoader(object):
     def __init__(self, sents, batch_size, pad_id=0, cuda=False, volatile=False):

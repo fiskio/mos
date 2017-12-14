@@ -88,6 +88,9 @@ parser.add_argument('--load_embs', default=False, action='store_true',
                     help='Load word embeddings from file')
 parser.add_argument('--emb_file', default=None, type=str,
                     help='Optional embedding file')
+parser.add_argument('--bytes', action='store_true',
+                    help='Model using bytes instead of words (badass!)')
+
 args = parser.parse_args()
 
 if args.nhidlast < 0:
@@ -121,7 +124,12 @@ if torch.cuda.is_available():
 # Load data
 ###############################################################################
 
-corpus = data.Corpus(args.data)
+if args.bytes:
+    print('Modelling: BYTES')
+    corpus = data.ByteCorpus(args.data)
+else:
+    print('Modelling: WORDS')
+    corpus = data.Corpus(args.data)
 
 eval_batch_size = 10
 test_batch_size = 1
@@ -139,7 +147,7 @@ if args.continue_train:
 else:
     model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nhidlast, args.nlayers, 
                        args.dropout, args.dropouth, args.dropouti, args.dropoute, args.wdrop, 
-                       args.tied, args.dropoutl, args.n_experts)
+                       args.tied, args.dropoutl, args.n_experts, args.bytes)
 
 if args.cuda:
     if args.single_gpu:
@@ -202,6 +210,7 @@ def evaluate(data_source, batch_size=10):
 
 
 def train():
+    print('TRAINING')
     assert args.batch_size % args.small_batch_size == 0, 'batch_size must be divisible by small_batch_size'
 
     # Turn on training mode which enables dropout.
@@ -261,6 +270,8 @@ def train():
             print(torch.sum(model.encoder.weight.data))
             print(torch.sum(model.decoder.weight.data))
             elapsed = time.time() - start_time
+            print(model.encoder.weight.data)
+            print(model.decoder.weight.data)
             logging('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
                     'loss {:5.2f} | ppl {:8.2f}'.format(
                 epoch, batch, len(train_data) // args.bptt, optimizer.param_groups[0]['lr'],
