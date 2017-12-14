@@ -291,7 +291,7 @@ if not args.test_only:
             print(optimizer_state)
             optimizer.load_state_dict(optimizer_state)
         else:
-            optimizer = torch.optim.ASGD(train_params, lr=args.lr, weight_decay=args.wdecay)
+            optimizer = torch.optim.SGD(train_params, lr=args.lr, weight_decay=args.wdecay)
        # optimizer = torch.optim.SGD(train_params, lr=args.lr, weight_decay=args.wdecay)
         for epoch in range(1, args.epochs+1):
             epoch_start_time = time.time()
